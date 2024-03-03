@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "huginn-hears"
+version = "0.1.0"
+description = "Transcribe and summerize in Norwegian"
+authors = ["Magnus <97634880+MagnusS0@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+torch = "^2.2.1"
+transformers = "^4.38.2"
+langchain = "^0.1.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
