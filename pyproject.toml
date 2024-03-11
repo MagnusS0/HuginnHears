@@ -12,6 +12,7 @@ transformers = "^4.38.2"
 langchain = "^0.1.10"
 gpt4all = "^2.2.1.post1"
 llama-cpp-python = "^0.2.55"
+tiktoken = "^0.6.0"
 
 
 [build-system]

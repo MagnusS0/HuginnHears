@@ -44,14 +44,10 @@ class WhisperTranscriber:
                                    generate_kwargs={'num_beams': num_beams,
                                                     'task': 'transcribe',
                                                     'language': self.language})
-        return transcription
+        return transcription['text']
     
-
-def __main__():
+if __name__ == "__main__":
     transcriber = WhisperTranscriber()
     audio_path = 'test_files/king.mp3'
     print(transcriber.transcribe(audio_path))
-
-if __name__ == "__main__":
-    __main__()
     
