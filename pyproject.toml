@@ -1,9 +1,10 @@
 [tool.poetry]
 name = "huginn-hears"
 version = "0.1.0"
-description = "Transcribe and summerize in Norwegian"
+description = "Transcribe speech and summerize in Norwegian"
 authors = ["Magnus <97634880+MagnusS0@users.noreply.github.com>"]
 readme = "README.md"
+license = "Appache-2.0"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -11,7 +12,6 @@ torch = "^2.2.1"
 transformers = "^4.38.2"
 langchain = "^0.1.10"
 llama-cpp-python = "^0.2.55"
-tiktoken = "^0.6.0"
 faster-whisper = "^1.0.1"
 
 
