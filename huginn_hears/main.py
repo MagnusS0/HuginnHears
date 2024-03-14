@@ -12,6 +12,19 @@ from langchain.chains import LLMChain
 
 
 class WhisperTranscriber:
+    """
+    A class for transcribing audio using the Faster-Whisper ASR model.
+
+    Args:
+        model_size (str): The size of the Whisper model. Defaults to 'small'.
+        compute_type (str): The compute type for the model. Defaults to 'float16'.
+
+    Methods:
+        load_model: A context manager for loading the Whisper model.
+        transcribe: Transcribes the audio using the loaded model.
+
+    """
+
     def __init__(self, model_size='small', compute_type="float16"):
         self.model_size = model_size
         self.compute_type = compute_type
@@ -19,8 +32,19 @@ class WhisperTranscriber:
         self.model = None
 
     @contextmanager
-    def load_model(self, cpu_threads=4, num_workers=6):
-        self.model = WhisperModel(f"NbAiLab/nb-whisper-{self.model_size}",
+    def load_model(self, cpu_threads=4, num_workers=6): 
+        """
+        A context manager for loading and unloading the Whisper model.
+
+        Args:
+            cpu_threads (int): The number of CPU threads to use. Defaults to 4.
+            num_workers (int): The number of workers for data loading. Defaults to 6.
+
+        Returns:
+            WhisperModel: The loaded Whisper ASR model.
+
+        """
+        self.model = WhisperModel(f"NbAiLab/nb-whisper-{self.model_size}", # Model needs to be compatible with faster-whisper's Ctranselate2 engine
                                   device=self.device,
                                   compute_type=self.compute_type,
                                   cpu_threads=cpu_threads,
@@ -33,11 +57,22 @@ class WhisperTranscriber:
             gc.collect()
 
     def transcribe(self, audio_path, timestamp=False):
+        """
+        Transcribes the audio using the loaded Whisper model.
+
+        Args:
+            audio_path (str): The path to the audio file.
+            timestamp (bool): Whether to include timestamps in the transcribed text. Defaults to False.
+
+        Returns:
+            str: The transcribed text.
+
+        """
         with self.load_model() as model:
             segments, _ = model.transcribe(audio_path,
                                            beam_size=5,
-                                           language='no',
-                                           chunk_length=28)
+                                           language='no', # Declearing language is faster but optional
+                                           chunk_length=28) # 28 provides better results
             if timestamp:
                 transcribed_text = "\n".join(
                     [f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}" for segment in segments])
@@ -48,6 +83,16 @@ class WhisperTranscriber:
 
 
 class MistralSummarizer:
+    """
+    A class for summarizing documents using the Mistral model.
+
+    Args:
+        model_path (str): The path to the Mistral model.
+        text_splitter (TextSplitter, optional): The text splitter to use for splitting documents into chunks. Defaults to RecursiveCharacterTextSplitter.
+        prompt_template (str, optional): The prompt template to use for generating prompts. Defaults to None.
+        refine_template (str, optional): The refine template to use for refining summaries. Defaults to None.
+    """
+
     def __init__(self, model_path, text_splitter=RecursiveCharacterTextSplitter, prompt_template: str = None, refine_template: str = None):
         self.model_path = model_path
         self.layers = -1 if torch.cuda.is_available() else None
@@ -58,6 +103,19 @@ class MistralSummarizer:
 
     @contextmanager
     def load_model(self, n_ctx=4096, max_tokens=1024, n_batch=512, n_threads=4, temperature=0.2):
+        """
+        Context manager for loading and unloading the Mistral model.
+
+        Args:
+            n_ctx (int, optional): The context size for the model. Defaults to 4096.
+            max_tokens (int, optional): The maximum number of tokens to generate. Defaults to 1024.
+            n_batch (int, optional): The batch size for model inference. Defaults to 512.
+            n_threads (int, optional): The number of threads to use for model inference. Defaults to 4.
+            temperature (float, optional): The temperature for sampling from the model. Defaults to 0.2.
+
+        Returns:
+            LlamaCpp: The loaded Mistral model.
+        """
         self.model = LlamaCpp(
             model_path=self.model_path,
             n_gpu_layers=self.layers,
@@ -66,8 +124,8 @@ class MistralSummarizer:
             n_batch=n_batch,
             n_threads=n_threads,
             temperature=temperature,
-            top_p = 0.9,
-            repeat_penalty=1.18,
+            top_p=0.9,
+            repeat_penalty=1.18, # Trying to avoid repeating the same words
             verbose=True
         )
         try:
@@ -78,14 +136,22 @@ class MistralSummarizer:
             gc.collect()
 
     def summarize(self, document: str) -> str:
-        
+        """
+        Summarizes a document using either the full context or a refine chain.
+
+        Args:
+            document (str): The document to summarize.
+
+        Returns:
+            str: The summarized document.
+        """
         docs = [Document(page_content=document)]
 
         num_tokens = len(docs[0].page_content.split())
 
         with self.load_model() as model:
 
-            if num_tokens < 2048:
+            if num_tokens < 2048: # Adjust this threshold based on the model's maximum token limit
                 llm_chain = LLMChain(llm=model, prompt=self.prompt_template)
                 result = llm_chain.invoke({"text": docs})
                 return result
@@ -102,10 +168,23 @@ class MistralSummarizer:
             )
 
             result = chain.invoke({"input_documents": split_docs})
-            return result
+            return result["output_text"]
 
 
 class AudioSummarizationPipeline:
+    """
+    A class representing an audio summarization pipeline.
+
+    Args:
+        audio_path (str): The path to the audio file.
+        transcriber (WhisperTranscriber): An instance of the WhisperTranscriber class for transcribing the audio.
+        summarizer (MistralSummarizer): An instance of the MistralSummarizer class for summarizing the transcript.
+
+    Raises:
+        TypeError: If transcriber is not an instance of WhisperTranscriber.
+        TypeError: If summarizer is not an instance of MistralSummarizer.
+    """
+
     def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: MistralSummarizer):
         if not isinstance(transcriber, WhisperTranscriber):
             raise TypeError(f'transcriber must be an instance of WhisperTranscriber, got {type(transcriber)} instead')
@@ -117,19 +196,30 @@ class AudioSummarizationPipeline:
         self.summarizer = summarizer
 
     def run(self):
+        """
+        Runs the audio summarization pipeline.
+
+        Transcribes the audio using the transcriber, summarizes the transcript using the summarizer,
+        and prints the summary.
+
+        Returns:
+            str: The summarized document.
+
+        Raises:
+            Exception: If an error occurs during the transcription or summarization process.
+        """
         try:
             transcript = self.transcriber.transcribe(self.audio_path)
             summary = self.summarizer.summarize(transcript)
             print(summary)
         except Exception as e:
-            # Log the error, or print a user-friendly message
             print(f"An error occurred: {e}")
 
 
 
 
 if __name__ == "__main__":
-    # Define your prompt and refine templates
+    # Define the prompt and refine templates
     prompt_template = """
     <s>[INST] Du er en ekspertagent i informasjonsutvinning og sammendrag.
     Gitt en tale transkripsjon, generer et sammendrag for arkivering.
