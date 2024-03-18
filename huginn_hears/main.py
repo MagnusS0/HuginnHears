@@ -71,6 +71,7 @@ class WhisperTranscriber:
         with self.load_model() as model:
             segments, _ = model.transcribe(audio_path,
                                            beam_size=5,
+                                           task="transcribe",
                                            language='no', # Declearing language is faster but optional
                                            chunk_length=28) # 28 provides better results
             if timestamp:
@@ -151,10 +152,10 @@ class MistralSummarizer:
 
         with self.load_model() as model:
 
-            if num_tokens < 2048: # Adjust this threshold based on the model's maximum token limit
+            if num_tokens < 2048: # Adjust this threshold based on the model's maximum token limit and memory availability
                 llm_chain = LLMChain(llm=model, prompt=self.prompt_template)
                 result = llm_chain.invoke({"text": docs})
-                return result
+                return result['text']
 
             split_docs = self.text_splitter.split_documents(docs)
             chain = load_summarize_chain(
