@@ -3,6 +3,9 @@ import torch
 from faster_whisper import WhisperModel
 from contextlib import contextmanager
 
+from transformers import AutoConfig, AutoTokenizer, AutoModel
+from summarizer import Summarizer
+
 from langchain_community.llms import LlamaCpp
 from langchain.schema.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -81,6 +84,60 @@ class WhisperTranscriber:
 
             transcribed_text = "\n".join([segment.text for segment in segments])
             return transcribed_text
+        
+class ExtractiveSummarizer:
+    """
+    A class for summarizing documents using a extractive summarization model.
+
+    Args:
+        model_name (str): The name of the extractive summarization model from HF Hub.
+        ratio (float): The ratio of the document to keep for summarization. Defaults to 0.5.
+
+    Methods:
+        summarize: Summarizes the document using the extractive summarization model.
+
+    """
+
+    def __init__(self, model_name='knkarthick/MEETING_SUMMARY', ratio=0.5):
+        self.model_name = model_name
+        self.ratio = ratio
+        self.model = None
+
+
+    @contextmanager
+    def load_extractive_summarizer(self):
+        """
+        Context manager for loading and unloading the extractive summarizer model.
+
+        Yields:
+            Summarizer: The loaded extractive summarizer model.
+        """
+        config = AutoConfig.from_pretrained(self.model_name)
+        config.output_hidden_states=True # Required to get outputs from all layers
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        model = AutoModel.from_pretrained(self.model_name, config=config)
+        self.model = Summarizer(custom_model=model, custom_tokenizer=tokenizer)
+        try:
+            yield self.model
+        finally:
+            del model
+            del self.model
+            torch.cuda.empty_cache()
+            gc.collect()
+
+    def extractive_summarize(self, document: str) -> str:
+        """
+        Summarizes a document using an extractive summarizer model.
+
+        Args:
+            document (str): The document to summarize.
+
+        Returns:
+            str: The summarized document.
+        """
+        with self.load_extractive_summarizer() as model:
+            summary = model(document, ratio=self.ratio) # Adjust the ratio for longer or shorter summaries
+            return summary
 
 
 class MistralSummarizer:
@@ -114,7 +171,7 @@ class MistralSummarizer:
             n_threads (int, optional): The number of threads to use for model inference. Defaults to 4.
             temperature (float, optional): The temperature for sampling from the model. Defaults to 0.2.
 
-        Returns:
+        Yields:
             LlamaCpp: The loaded Mistral model.
         """
         self.model = LlamaCpp(
@@ -136,7 +193,7 @@ class MistralSummarizer:
             torch.cuda.empty_cache()
             gc.collect()
 
-    def summarize(self, document: str) -> str:
+    def summarize(self, document) -> str:
         """
         Summarizes a document using either the full context or a refine chain.
 
@@ -186,17 +243,20 @@ class AudioSummarizationPipeline:
         TypeError: If summarizer is not an instance of MistralSummarizer.
     """
 
-    def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: MistralSummarizer):
+    def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: MistralSummarizer, extractor: ExtractiveSummarizer):
         if not isinstance(transcriber, WhisperTranscriber):
             raise TypeError(f'transcriber must be an instance of WhisperTranscriber, got {type(transcriber)} instead')
         if not isinstance(summarizer, MistralSummarizer):
             raise TypeError(f'summarizer must be an instance of MistralSummarizer, got {type(summarizer)} instead')
+        if not isinstance(extractor, ExtractiveSummarizer):
+            raise TypeError(f'extractor must be an instance of ExtractiveSummarizer, got {type(extractor)} instead')
         
         self.audio_path = audio_path
         self.transcriber = transcriber
         self.summarizer = summarizer
+        self.extractor = extractor
 
-    def run(self):
+    def run(self, extractive_summary=False):
         """
         Runs the audio summarization pipeline.
 
@@ -211,6 +271,9 @@ class AudioSummarizationPipeline:
         """
         try:
             transcript = self.transcriber.transcribe(self.audio_path)
+            if extractive_summary:
+                summary = self.extractor.extractive_summarize(transcript)
+                return summary
             summary = self.summarizer.summarize(transcript)
             print(summary)
         except Exception as e:
@@ -247,6 +310,7 @@ if __name__ == "__main__":
     """
     transcriber = WhisperTranscriber()
     summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf', prompt_template=prompt_template, refine_template=refine_template)
+    extractor = ExtractiveSummarizer()
     audio_path = '/home/magsam/workspace/huginn-hears/test_files/Kongens nyttårstale 2023.m4a'
-    pipeline = AudioSummarizationPipeline(audio_path, transcriber, summarizer)
+    pipeline = AudioSummarizationPipeline(audio_path, transcriber, summarizer, extractor)
     pipeline.run()
