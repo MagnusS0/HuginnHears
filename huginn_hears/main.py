@@ -3,8 +3,8 @@ import torch
 from faster_whisper import WhisperModel
 from contextlib import contextmanager
 
-from transformers import AutoConfig, AutoTokenizer, AutoModel
-from summarizer import Summarizer
+from llmlingua import PromptCompressor
+from transformers import AutoTokenizer
 
 from langchain_community.llms import LlamaCpp
 from langchain.schema.document import Document
@@ -35,7 +35,7 @@ class WhisperTranscriber:
         self.model = None
 
     @contextmanager
-    def load_model(self, cpu_threads=4, num_workers=6): 
+    def load_model(self, cpu_threads=4, num_workers=6):
         """
         A context manager for loading and unloading the Whisper model.
 
@@ -47,7 +47,7 @@ class WhisperTranscriber:
             WhisperModel: The loaded Whisper ASR model.
 
         """
-        self.model = WhisperModel(f"NbAiLab/nb-whisper-{self.model_size}", # Model needs to be compatible with faster-whisper's Ctranselate2 engine
+        self.model = WhisperModel(f"NbAiLab/nb-whisper-{self.model_size}",  # Model needs to be compatible with faster-whisper's Ctranselate2 engine
                                   device=self.device,
                                   compute_type=self.compute_type,
                                   cpu_threads=cpu_threads,
@@ -75,34 +75,32 @@ class WhisperTranscriber:
             segments, _ = model.transcribe(audio_path,
                                            beam_size=5,
                                            task="transcribe",
-                                           language='no', # Declearing language is faster but optional
-                                           chunk_length=28) # 28 provides better results
+                                           language='no',  # Declearing language is faster but optional
+                                           chunk_length=28)  # 28 provides better results
             if timestamp:
                 transcribed_text = "\n".join(
                     [f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}" for segment in segments])
                 return transcribed_text
 
-            transcribed_text = "\n".join([segment.text for segment in segments])
+            transcribed_text = "\n".join(
+                [segment.text for segment in segments])
             return transcribed_text
-        
+
+
 class ExtractiveSummarizer:
     """
-    A class for summarizing documents using a extractive summarization model.
+    A class for summarizing documents using LLMLingua-2 compression.
 
     Args:
         model_name (str): The name of the extractive summarization model from HF Hub.
-        ratio (float): The ratio of the document to keep for summarization. Defaults to 0.5.
-
-    Methods:
-        summarize: Summarizes the document using the extractive summarization model.
+        rate (float): The forced compression rate of the document. Defaults to 0.5.
 
     """
 
-    def __init__(self, model_name='knkarthick/MEETING_SUMMARY', ratio=0.5):
+    def __init__(self, model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank", rate=0.6):
         self.model_name = model_name
-        self.ratio = ratio
+        self.rate = rate
         self.model = None
-
 
     @contextmanager
     def load_extractive_summarizer(self):
@@ -112,18 +110,27 @@ class ExtractiveSummarizer:
         Yields:
             Summarizer: The loaded extractive summarizer model.
         """
-        config = AutoConfig.from_pretrained(self.model_name)
-        config.output_hidden_states=True # Required to get outputs from all layers
-        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        model = AutoModel.from_pretrained(self.model_name, config=config)
-        self.model = Summarizer(custom_model=model, custom_tokenizer=tokenizer)
+        model = PromptCompressor(
+            model_name=self.model_name,
+            use_llmlingua2=True
+        )
         try:
-            yield self.model
+            yield model
         finally:
             del model
-            del self.model
             torch.cuda.empty_cache()
             gc.collect()
+
+    def _compressed_summary(self, text, model):
+        summary = model.compress_prompt_llmlingua2(
+            text,
+            rate=self.rate,
+            force_tokens=['\n', '.', '!', '?'],
+            chunk_end_tokens=['.', '\n'],
+            return_word_label=False,
+            drop_consecutive=True
+        )
+        return summary['compressed_prompt']
 
     def extractive_summarize(self, document: str) -> str:
         """
@@ -135,9 +142,22 @@ class ExtractiveSummarizer:
         Returns:
             str: The summarized document.
         """
+
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+        splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+            tokenizer,
+            chunk_size=512)
+
+        documents = splitter.split_text(document)
+
         with self.load_extractive_summarizer() as model:
-            summary = model(document, ratio=self.ratio) # Adjust the ratio for longer or shorter summaries
-            return summary
+            summaries = [self._compressed_summary(
+                chunk, model) for chunk in documents]
+            final_summary = ' '.join(summaries)
+            del summaries
+            torch.cuda.empty_cache()
+            return final_summary
 
 
 class MistralSummarizer:
@@ -155,12 +175,12 @@ class MistralSummarizer:
         self.model_path = model_path
         self.layers = -1 if torch.cuda.is_available() else None
         self.model = None
-        self.text_splitter = text_splitter(chunk_size=1024)
+        self.text_splitter = text_splitter(chunk_size=512)
         self.prompt_template = PromptTemplate.from_template(prompt_template)
         self.refine_template = PromptTemplate.from_template(refine_template)
 
     @contextmanager
-    def load_model(self, n_ctx=4096, max_tokens=1024, n_batch=512, n_threads=4, temperature=0.2):
+    def load_model(self, n_ctx=2048, max_tokens=512, n_batch=256, n_threads=4, temperature=0.2):
         """
         Context manager for loading and unloading the Mistral model.
 
@@ -183,7 +203,7 @@ class MistralSummarizer:
             n_threads=n_threads,
             temperature=temperature,
             top_p=0.9,
-            repeat_penalty=1.18, # Trying to avoid repeating the same words
+            repeat_penalty=1.18,  # Trying to avoid repeating the same words
             verbose=True
         )
         try:
@@ -205,28 +225,26 @@ class MistralSummarizer:
         """
         docs = [Document(page_content=document)]
 
-        num_tokens = len(docs[0].page_content.split())
-
         with self.load_model() as model:
 
-            if num_tokens < 2048: # Adjust this threshold based on the model's maximum token limit and memory availability
+            try:  # Trying to use the full context
                 llm_chain = LLMChain(llm=model, prompt=self.prompt_template)
                 result = llm_chain.invoke({"text": docs})
                 return result['text']
+            except: # If the full context fails, use the refine chain
+                split_docs = self.text_splitter.split_documents(docs)
+                chain = load_summarize_chain(
+                    llm=model,
+                    chain_type="refine",
+                    question_prompt=self.prompt_template,
+                    refine_prompt=self.refine_template,
+                    return_intermediate_steps=False,
+                    input_key="input_documents",
+                    output_key="output_text",
+                )
 
-            split_docs = self.text_splitter.split_documents(docs)
-            chain = load_summarize_chain(
-                llm=model,
-                chain_type="refine",
-                question_prompt=self.prompt_template,
-                refine_prompt=self.refine_template,
-                return_intermediate_steps=False,
-                input_key="input_documents",
-                output_key="output_text",
-            )
-
-            result = chain.invoke({"input_documents": split_docs})
-            return result["output_text"]
+                result = chain.invoke({"input_documents": split_docs})
+                return result["output_text"]
 
 
 class AudioSummarizationPipeline:
@@ -245,12 +263,15 @@ class AudioSummarizationPipeline:
 
     def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: MistralSummarizer, extractor: ExtractiveSummarizer):
         if not isinstance(transcriber, WhisperTranscriber):
-            raise TypeError(f'transcriber must be an instance of WhisperTranscriber, got {type(transcriber)} instead')
+            raise TypeError(
+                f'transcriber must be an instance of WhisperTranscriber, got {type(transcriber)} instead')
         if not isinstance(summarizer, MistralSummarizer):
-            raise TypeError(f'summarizer must be an instance of MistralSummarizer, got {type(summarizer)} instead')
+            raise TypeError(
+                f'summarizer must be an instance of MistralSummarizer, got {type(summarizer)} instead')
         if not isinstance(extractor, ExtractiveSummarizer):
-            raise TypeError(f'extractor must be an instance of ExtractiveSummarizer, got {type(extractor)} instead')
-        
+            raise TypeError(
+                f'extractor must be an instance of ExtractiveSummarizer, got {type(extractor)} instead')
+
         self.audio_path = audio_path
         self.transcriber = transcriber
         self.summarizer = summarizer
@@ -272,14 +293,11 @@ class AudioSummarizationPipeline:
         try:
             transcript = self.transcriber.transcribe(self.audio_path)
             if extractive_summary:
-                summary = self.extractor.extractive_summarize(transcript)
-                return summary
+                transcript = self.extractor.extractive_summarize(transcript)
             summary = self.summarizer.summarize(transcript)
             print(summary)
         except Exception as e:
             print(f"An error occurred: {e}")
-
-
 
 
 if __name__ == "__main__":
@@ -309,8 +327,10 @@ if __name__ == "__main__":
     SVÆRT VIKTIG: Ikke nevn deg selv, kun skriv sammendraget. Ingen intro, ingen annen tekst [/INST]
     """
     transcriber = WhisperTranscriber()
-    summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf', prompt_template=prompt_template, refine_template=refine_template)
+    summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf',
+                                   prompt_template=prompt_template, refine_template=refine_template)
     extractor = ExtractiveSummarizer()
-    audio_path = '/home/magsam/workspace/huginn-hears/test_files/Kongens nyttårstale 2023.m4a'
-    pipeline = AudioSummarizationPipeline(audio_path, transcriber, summarizer, extractor)
-    pipeline.run()
+    audio_path = '/home/magsam/workspace/huginn-hears/test_files/king.mp3'
+    pipeline = AudioSummarizationPipeline(
+        audio_path, transcriber, summarizer, extractor)
+    pipeline.run(extractive_summary=True)
