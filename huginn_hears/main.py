@@ -6,12 +6,13 @@ from contextlib import contextmanager
 from llmlingua import PromptCompressor
 from transformers import AutoTokenizer
 
+from utils import refine_summary
+
 from langchain_community.llms import LlamaCpp
 from langchain.schema.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
-from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
 
 class WhisperTranscriber:
@@ -155,8 +156,6 @@ class ExtractiveSummarizer:
             summaries = [self._compressed_summary(
                 chunk, model) for chunk in documents]
             final_summary = ' '.join(summaries)
-            del summaries
-            torch.cuda.empty_cache()
             return final_summary
 
 
@@ -175,12 +174,12 @@ class MistralSummarizer:
         self.model_path = model_path
         self.layers = -1 if torch.cuda.is_available() else None
         self.model = None
-        self.text_splitter = text_splitter(chunk_size=512)
+        self.text_splitter = text_splitter(chunk_size=2048)
         self.prompt_template = PromptTemplate.from_template(prompt_template)
         self.refine_template = PromptTemplate.from_template(refine_template)
 
     @contextmanager
-    def load_model(self, n_ctx=2048, max_tokens=512, n_batch=256, n_threads=4, temperature=0.2):
+    def load_model(self, n_ctx=4096, max_tokens=512, n_batch=512, n_threads=6, temperature=0.2):
         """
         Context manager for loading and unloading the Mistral model.
 
@@ -224,27 +223,29 @@ class MistralSummarizer:
             str: The summarized document.
         """
         docs = [Document(page_content=document)]
+        output_parser = StrOutputParser()
 
         with self.load_model() as model:
 
             try:  # Trying to use the full context
-                llm_chain = LLMChain(llm=model, prompt=self.prompt_template)
-                result = llm_chain.invoke({"text": docs})
-                return result['text']
+                chain = (
+                    self.prompt_template
+                    | model
+                    | output_parser
+                    )
+                result = chain.invoke({"text": docs})
+                return result
             except: # If the full context fails, use the refine chain
                 split_docs = self.text_splitter.split_documents(docs)
-                chain = load_summarize_chain(
-                    llm=model,
-                    chain_type="refine",
-                    question_prompt=self.prompt_template,
-                    refine_prompt=self.refine_template,
-                    return_intermediate_steps=False,
-                    input_key="input_documents",
-                    output_key="output_text",
+                refine_chain = (
+                    self.refine_template
+                    | model
+                    | output_parser
                 )
-
-                result = chain.invoke({"input_documents": split_docs})
-                return result["output_text"]
+                # Combine the chains
+                summary = refine_summary(chain=chain, refine_chain=refine_chain, split_docs=split_docs)
+            
+                return summary
 
 
 class AudioSummarizationPipeline:
@@ -294,6 +295,8 @@ class AudioSummarizationPipeline:
             transcript = self.transcriber.transcribe(self.audio_path)
             if extractive_summary:
                 transcript = self.extractor.extractive_summarize(transcript)
+                torch.cuda.empty_cache() # Because momory release is not working in the context manager
+                gc.collect()
             summary = self.summarizer.summarize(transcript)
             print(summary)
         except Exception as e:
@@ -333,4 +336,4 @@ if __name__ == "__main__":
     audio_path = '/home/magsam/workspace/huginn-hears/test_files/king.mp3'
     pipeline = AudioSummarizationPipeline(
         audio_path, transcriber, summarizer, extractor)
-    pipeline.run(extractive_summary=True)
+    pipeline.run(extractive_summary=False)

@@ -206,3 +206,4 @@ pyrightconfig.json
 
 # Test files
 test_files/
+server/

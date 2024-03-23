@@ -3,9 +3,10 @@ import sys
 import os
 sys.path.append(os.getcwd() + '/')
 import tempfile
-import base64
+import torch
+import gc
 from huginn_hears.main import WhisperTranscriber, MistralSummarizer, ExtractiveSummarizer
-from prompt_templates import king_refine_template, king_prompt_template, en_prompt_template, en_refine_template
+from prompt_templates import no_refine_template, no_prompt_template, en_prompt_template, en_refine_template
 
 
 def get_file_path(audio_file):
@@ -43,7 +44,7 @@ def main():
         # Initialize the transcriber and summarizer
         transcriber = WhisperTranscriber()
         extractive_summarizer = ExtractiveSummarizer()
-        summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf', prompt_template=en_prompt_template, refine_template=en_refine_template)
+        summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf', prompt_template=no_prompt_template, refine_template=no_refine_template)
         
         # Cache the transcribe and summarize functions to avoid re-running them
         @st.cache_data(persist=True, show_spinner=False)
@@ -72,6 +73,8 @@ def main():
                     # Ensure transcription is done before summarization
                     transcript = cached_transcribe(file_path)
                     summary_ex = chached_extractive_summarize(transcript)
+                    torch.cuda.empty_cache() # Clear GPU memory becasue context manager does not work correctly
+                    gc.collect()
                     summary = cached_summarize(summary_ex)
                 # Display summary
                 st.write("Summary:")
