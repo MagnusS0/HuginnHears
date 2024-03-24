@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from llmlingua import PromptCompressor
 from transformers import AutoTokenizer
 
-from utils import refine_summary
+from huginn_hears.utils import refine_summary
 
 from langchain_community.llms import LlamaCpp
 from langchain.schema.document import Document
@@ -203,7 +203,8 @@ class MistralSummarizer:
             temperature=temperature,
             top_p=0.9,
             repeat_penalty=1.18,  # Trying to avoid repeating the same words
-            verbose=True
+            verbose=True,
+            chat_format="chatml",
         )
         try:
             yield self.model

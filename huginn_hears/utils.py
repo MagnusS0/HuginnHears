@@ -5,8 +5,8 @@ def refine_summary(chain, refine_chain, split_docs):
     Refines the summary of a document based on the split documents.
 
     Args:
-        chain (object): The initial chain to be used if no existing answer is provided.
-        refine_chain (object): The chain to be used if an existing answer is provided.
+        chain (object): The initial chain to be used if no existing summary is provided.
+        refine_chain (object): The chain to be used if an existing summary is provided.
         split_docs (list): The list of documents to be processed.
 
     Returns:
