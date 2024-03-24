@@ -1,87 +1,50 @@
-# Whisper-LLM Project
+# Huginn Hears
+Huginn Hears is a Python application designed to transcribe speech and summarize it in Norwegian. It is meant to be used locally and ran on a single machine. The application is built using the [Streamlit](https://streamlit.io/) framework for the user interface, [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) for speech-to-text transcription, [llmlingua-2](https://github.com/microsoft/LLMLingua) for compressing the transcribed text and [llama-ccp-python](https://github.com/abetlen/llama-cpp-python) for summarization. You are free to 
 
-This project focuses on integrating a Whisper model fine-tuned on Norwegian for transcription and connecting it to a Large Language Model (LLM) with LangChain for summarization.
+## Features
+- Transcribes speech into text.
+- Summarizes the transcribed text.
+- Supports both English and Norwegian languages.
 
-## Project Structure
-
+## Installation
+This project uses [Poetry](https://python-poetry.org/) for dependency management. To install the project, first install Poetry, then run the following command in the project root:
+```bash
+poetry install
 ```
-whisper-llm-project
-├── src
-│   ├── whisper
-│   │   └── norwegian_transcription.py
-│   ├── llm
-│   │   └── summarization.py
-│   └── main.py
-├── models
-│   ├── whisper
-│   │   └── norwegian_model
-│   └── llm
-│       └── langchain_model
-├── tests
-│   ├── test_transcription.py
-│   └── test_summarization.py
-├── requirements.txt
-└── README.md
-```
-
-## Files
-
-### `src/whisper/norwegian_transcription.py`
-
-This file contains the code for integrating the Whisper model fine-tuned on Norwegian for transcription. It includes functions and classes for transcribing Norwegian audio.
-
-### `src/llm/summarization.py`
-
-This file contains the code for connecting to a Large Language Model (LLM) with LangChain for summarization. It includes functions and classes for generating summaries from text.
-
-### `src/main.py`
-
-This file is the entry point of the application. It uses the Whisper model for transcription and the LLM with LangChain for summarization to process audio and generate summaries.
-
-### `models/whisper/norwegian_model`
-
-This directory contains the Whisper model fine-tuned on Norwegian for transcription. It includes the necessary files and configurations for using the model.
-
-### `models/llm/langchain_model`
-
-This directory contains the Large Language Model (LLM) with LangChain for summarization. It includes the necessary files and configurations for using the model.
-
-### `tests/test_transcription.py`
-
-This file contains unit tests for the Whisper model's transcription functionality. It includes test cases for different scenarios and edge cases.
-
-### `tests/test_summarization.py`
-
-This file contains unit tests for the LLM with LangChain's summarization functionality. It includes test cases for different scenarios and edge cases.
-
-### `requirements.txt`
-
-This file lists the dependencies required for the project. It includes the necessary packages and versions for running the code.
+This will install all the necessary dependencies as defined in the `pyproject.toml` file.
 
 ## Usage
+To run the application, use the following command:
+```bash
+python streamlit_app/run.py
+```
+This will start the Streamlit server and the application will be accessible at `localhost:8501`.
 
-1. Install the required dependencies by running `pip install -r requirements.txt`.
-2. Place the audio files you want to transcribe in a directory.
-3. Update the necessary configurations in `src/whisper/norwegian_transcription.py` and `src/llm/summarization.py`.
-4. Run `python src/main.py` to start the transcription and summarization process.
-5. The transcriptions and summaries will be generated and saved in the specified output directory.
-
-## Testing
-
-To run the unit tests for the Whisper model's transcription functionality, execute `python -m unittest tests/test_transcription.py`.
-
-To run the unit tests for the LLM with LangChain's summarization functionality, execute `python -m unittest tests/test_summarization.py`.
-
-## Contributing
-
-Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+## Building
+To build the project into an executable, use the `setup.py` script with [cx_Freeze](https://cx-freeze.readthedocs.io/):
+```bash
+python setup.py build
+```
+This will create an executable in the `build` directory.
 
 ## Acknowledgements
+This project build on a lot of great work done by others. The following projects were used:
+- [Faster-Whisper]((https://github.com/SYSTRAN/faster-whisper))
+- [llmlingua-2](https://github.com/microsoft/LLMLingua)
+- [llama-ccp-python](https://github.com/abetlen/llama-cpp-python)
+    - [llama-ccp](https://github.com/ggerganov/llama.cpp)
+- [Poetry](https://python-poetry.org/)
+- [cx_Freeze](https://cx-freeze.readthedocs.io/)
+- [Langchain](https://www.langchain.com/)
+- [Streamlit](https://streamlit.io/)
 
-This project utilizes the Whisper model for transcription and the Large Language Model (LLM) with LangChain for summarization. Special thanks to the developers and contributors of these models.
+Big thanks to all the contributors to these open-source projects!
 
-Please note that this project is for educational purposes only and should not be used for any commercial applications without proper authorization.
+In addition, the following models were used:
+- [Nasjonalbiblioteket AI Lab](https://huggingface.co/NbAiLab/nb-whisper-small)
+- [Microsoft](https://huggingface.co/microsoft/llmlingua-2-xlm-roberta-large-meetingbank)
+- [TheBloke](https://huggingface.co/TheBloke) for all sorts quantisized models.
+
+## License
+This project is licensed under the Appache 2.0 License. See the `LICENSE` file for more information.
+

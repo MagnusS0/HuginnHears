@@ -3,9 +3,6 @@ import streamlit
 import streamlit.web.cli as stcli
 import os, sys
 
-#Set link to CUDA
-os.enviro(LD_LIBRARY_PATH="/usr/local/cuda/lib64") 
-
 def resolve_path(path):
     resolved_path = os.path.abspath(os.path.join(os.getcwd(), path))
     return resolved_path
