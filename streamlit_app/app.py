@@ -56,13 +56,19 @@ if 'transcript' not in st.session_state:
 
 
 def main():
-    st.title("Audio Transcription and Summarization")
+    st.title("Huginn Hears - Audio Summarization")
 
-    # Get path to models on the users system
+    # Notice about the initial download time for models
+    st.info("Please note: The first run of Huginn Hears may be slower as it downloads all necessary models. This is a one-time process, and subsequent runs will be significantly faster.")
+    # Get repo id and filename for the Hugging Face model
     mistral_model_path = st.text_input(
-        "Enter path to LLM model", placeholder="/path/to/model.gguf")
-    if not os.path.exists(mistral_model_path):
-        st.error("Invalid path to model")
+        "Enter the Hugging Face repo id", value="TheBloke/dolphin-2.6-mistral-7B-dpo-laser-GGUF")
+    mistral_filename = st.text_input(
+        "Enter the filename of the model", value="*Q4_K_M.gguf")
+    # Check if the user has entered the model path and filename
+    if not mistral_model_path or not mistral_filename:
+        st.warning("Please enter the Hugging Face repo id and the filename of the model.")
+        st.stop()
     else:
         # Select prompt and refine templates
         prompt_template = st.selectbox("Select prompt template", list(prompt_templates.keys()))
@@ -84,7 +90,7 @@ def main():
         # Initialize the transcriber and summarizer
         transcriber = WhisperTranscriber()
         extractive_summarizer = ExtractiveSummarizer()
-        summarizer = MistralSummarizer(model_path=mistral_model_path, 
+        summarizer = MistralSummarizer(repo_id=mistral_model_path, filename=mistral_filename,
                                        prompt_template=selected_prompt_template, 
                                        refine_template=selected_refine_template)
 

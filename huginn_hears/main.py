@@ -7,8 +7,8 @@ from llmlingua import PromptCompressor
 from transformers import AutoTokenizer
 
 from huginn_hears.utils import refine_summary
+from huginn_hears.utils import CustomLlamaCpp
 
-from langchain_community.llms import LlamaCpp
 from langchain.schema.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
@@ -170,8 +170,9 @@ class MistralSummarizer:
         refine_template (str, optional): The refine template to use for refining summaries. Defaults to None.
     """
 
-    def __init__(self, model_path, text_splitter=RecursiveCharacterTextSplitter, prompt_template: str = None, refine_template: str = None):
-        self.model_path = model_path
+    def __init__(self, repo_id: str, filename: str, text_splitter=RecursiveCharacterTextSplitter, prompt_template: str = None, refine_template: str = None):
+        self.repo_id = repo_id
+        self.filename = filename
         self.layers = -1 if torch.cuda.is_available() else None
         self.model = None
         self.text_splitter = text_splitter(chunk_size=2048)
@@ -193,8 +194,9 @@ class MistralSummarizer:
         Yields:
             LlamaCpp: The loaded Mistral model.
         """
-        self.model = LlamaCpp(
-            model_path=self.model_path,
+        self.model = CustomLlamaCpp(
+            repo_id=self.repo_id,
+            filename=self.filename,
             n_gpu_layers=self.layers,
             n_ctx=n_ctx,
             max_tokens=max_tokens,
@@ -331,7 +333,7 @@ if __name__ == "__main__":
     SVÆRT VIKTIG: Ikke nevn deg selv, kun skriv sammendraget. Ingen intro, ingen annen tekst [/INST]
     """
     transcriber = WhisperTranscriber()
-    summarizer = MistralSummarizer(model_path='/home/magsam/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf',
+    summarizer = MistralSummarizer(repo_id="TheBloke/dolphin-2.6-mistral-7B-dpo-laser-GGUF", filename='*Q4_K_M.gguf',
                                    prompt_template=prompt_template, refine_template=refine_template)
     extractor = ExtractiveSummarizer()
     audio_path = '/home/magsam/workspace/huginn-hears/test_files/king.mp3'
