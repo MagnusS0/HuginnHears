@@ -217,6 +217,7 @@ class LLMSummarizer:
         self.model = CustomLlamaCpp(
             repo_id=self.repo_id,
             filename=self.filename,
+            n_gpu_layers=self.layers,
             **self.model_options,
         )
         try:

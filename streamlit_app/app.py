@@ -56,8 +56,12 @@ if 'transcript' not in st.session_state:
 
 
 def main():
-    st.title("Huginn Hears - Audio Summarization")
+    st.title("Huginn Hears - Audio Summarization 🐦‍⬛")
 
+    st.write("""Transcribe and summarize audio files using Huginn Hears on your local machine.
+            Huginn Hears is a tool that uses NB-Whisper for transcription and any LLM from Huggingface you want to summerize the meeting. 
+            It is optimized for Norwegian and summerizing meetings.""")
+    
     # Notice about the initial download time for models
     st.info("Please note: The first run of Huginn Hears may be slower as it downloads all necessary models. This is a one-time process, and subsequent runs will be significantly faster.")
     # Get repo id and filename for the Hugging Face model
@@ -69,14 +73,48 @@ def main():
     if not mistral_model_path or not mistral_filename:
         st.warning("Please enter the Hugging Face repo id and the filename of the model.")
         st.stop()
+
     else:
+        col1, col2 = st.columns(2)
         # Select prompt and refine templates
-        prompt_template = st.selectbox("Select prompt template", list(prompt_templates.keys()))
-        refine_template = st.selectbox("Select refine template", list(refine_templates.keys()))
+        with col1:
+            prompt_template = st.selectbox("Select prompt template", list(prompt_templates.keys()))
+        with col2:   
+            refine_template = st.selectbox("Select refine template", list(refine_templates.keys()))
 
         # Use the selected templates
         selected_prompt_template = prompt_templates[prompt_template]
         selected_refine_template = refine_templates[refine_template]
+
+        # Advanced options
+        with st.expander("**Advanced Options** 🛠️", expanded=False):
+            # Adjust model parameters
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                n_ctx = st.slider("Context Size", min_value=0, max_value=8192, value=4096, step=256)
+            with col2:
+                max_tokens = st.slider("Max Tokens (Output)", min_value=0, max_value=1024, value=512, step=128)
+            with col3:
+                n_batch = st.slider("Batch Size", min_value=0, max_value=512, value=16, step=4)
+            with col4:
+                n_threads = st.slider("Threads", min_value=0, max_value=16, value=4, step=1)
+
+            model_options = {
+                "n_ctx": n_ctx,
+                "max_tokens": max_tokens,
+                "n_batch": n_batch,
+                "n_threads": n_threads
+            }
+
+            # Custom prompt and refine templates
+            st.info("You can write your own prompt and refine templates. NB: Make sure to include the placeholders `{text}` and `{existing_answer}` in the templates.")
+            custom_prompt = st.text_area("Custom Prompt Template", placeholder="Summerize this text: {text}")
+            custom_refine = st.text_area("Custom Refine Template", placeholder="Refine the summary: {existing_answer} with additional text: {text}")
+            if custom_prompt:
+                selected_prompt_template = custom_prompt
+            if custom_refine:
+                selected_refine_template = custom_refine
+
 
     uploaded_file = st.file_uploader(
         "Choose an audio file", type=['wav', 'mp3', 'm4a'])
@@ -90,9 +128,10 @@ def main():
         # Initialize the transcriber and summarizer
         transcriber = WhisperTranscriber()
         extractive_summarizer = ExtractiveSummarizer()
-        summarizer = LLMSummarizer(repo_id=mistral_model_path, filename=mistral_filename,
+        summarizer = LLMSummarizer(repo_id=mistral_model_path, 
+                                       filename=mistral_filename,
                                        prompt_template=selected_prompt_template, 
-                                       refine_template=selected_refine_template)
+                                       refine_template=selected_refine_template, model_options=model_options)
 
         # Cache the transcribe and summarize functions to avoid re-running them
         @st.cache_data(persist=True, show_spinner="Transcribing audio...")
@@ -129,7 +168,7 @@ def main():
                 gc.collect()
                 summary = cached_summarize(summary_ex)
                 # Display summary
-                st.write("Summary:")
+                st.write("**Summary**:")
                 st.write(summary)
                 # Download summary
                 st.download_button(label="Download Summary", data=summary,
@@ -144,7 +183,7 @@ def main():
                 transcript = st.session_state.transcript
                 summary = cached_summarize(transcript)
                 # Display summary
-                st.write("Summary:")
+                st.write("**Summary**:")
                 st.write(summary)
                 # Download summary
                 st.download_button(label="Download Summary", data=summary,
