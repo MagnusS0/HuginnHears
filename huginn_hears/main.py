@@ -113,7 +113,8 @@ class ExtractiveSummarizer:
         """
         model = PromptCompressor(
             model_name=self.model_name,
-            use_llmlingua2=True
+            use_llmlingua2=True,
+            device_map="cuda" if torch.cuda.is_available() else "cpu"
         )
         try:
             yield model
