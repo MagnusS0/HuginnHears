@@ -3,7 +3,7 @@ from prompt_templates import (no_refine_template, no_prompt_template,
                               chatml_no_prompt_template, chatml_no_refine_template,
                               chatml_en_prompt_template, chatml_en_refine_template,
                               )
-from huginn_hears.main import WhisperTranscriber, MistralSummarizer, ExtractiveSummarizer
+from huginn_hears.main import WhisperTranscriber, LLMSummarizer, ExtractiveSummarizer
 import gc
 import torch
 import tempfile
@@ -90,7 +90,7 @@ def main():
         # Initialize the transcriber and summarizer
         transcriber = WhisperTranscriber()
         extractive_summarizer = ExtractiveSummarizer()
-        summarizer = MistralSummarizer(repo_id=mistral_model_path, filename=mistral_filename,
+        summarizer = LLMSummarizer(repo_id=mistral_model_path, filename=mistral_filename,
                                        prompt_template=selected_prompt_template, 
                                        refine_template=selected_refine_template)
 

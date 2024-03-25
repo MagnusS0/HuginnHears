@@ -159,18 +159,44 @@ class ExtractiveSummarizer:
             return final_summary
 
 
-class MistralSummarizer:
+class LLMSummarizer:
     """
-    A class for summarizing documents using the Mistral model.
+    A class for summarizing documents using an LLM.
 
     Args:
-        model_path (str): The path to the Mistral model.
+        repo_id (str): The path to a model in the Hugging Face model hub.
+        filename (str): The filename of the model. 
         text_splitter (TextSplitter, optional): The text splitter to use for splitting documents into chunks. Defaults to RecursiveCharacterTextSplitter.
-        prompt_template (str, optional): The prompt template to use for generating prompts. Defaults to None.
-        refine_template (str, optional): The refine template to use for refining summaries. Defaults to None.
+        prompt_template (str): The prompt template to use for generating prompts. 
+        refine_template (str): The refine template to use for refining summaries.
+        model_options (dict, optional): The options to use for the LLM model. Defaults to {
+            'n_ctx': 4096,
+            'max_tokens': 512,
+            'n_batch': 16,
+            'n_threads': 6,
+            'temperature': 0.2,
+            'top_p': 0.9,
+            'repeat_penalty': 1.18,
+            'verbose': True,
+            'chat_format': "chatml",
+        }
     """
 
-    def __init__(self, repo_id: str, filename: str, text_splitter=RecursiveCharacterTextSplitter, prompt_template: str = None, refine_template: str = None):
+    def __init__(self, repo_id: str, filename: str,
+                 prompt_template: str, refine_template: str,
+                 model_options: dict = {
+                     'n_ctx': 4096,
+                     'max_tokens': 512,
+                     'n_batch': 16,
+                     'n_threads': 6,
+                     'temperature': 0.2,
+                     'top_p': 0.9,
+                     'repeat_penalty': 1.18,
+                     'verbose': True,
+                     'chat_format': "chatml",
+                 },
+                 text_splitter=RecursiveCharacterTextSplitter):
+        
         self.repo_id = repo_id
         self.filename = filename
         self.layers = -1 if torch.cuda.is_available() else None
@@ -178,18 +204,12 @@ class MistralSummarizer:
         self.text_splitter = text_splitter(chunk_size=2048)
         self.prompt_template = PromptTemplate.from_template(prompt_template)
         self.refine_template = PromptTemplate.from_template(refine_template)
+        self.model_options = model_options
 
     @contextmanager
-    def load_model(self, n_ctx=4096, max_tokens=512, n_batch=512, n_threads=6, temperature=0.2):
+    def load_model(self):
         """
-        Context manager for loading and unloading the Mistral model.
-
-        Args:
-            n_ctx (int, optional): The context size for the model. Defaults to 4096.
-            max_tokens (int, optional): The maximum number of tokens to generate. Defaults to 1024.
-            n_batch (int, optional): The batch size for model inference. Defaults to 512.
-            n_threads (int, optional): The number of threads to use for model inference. Defaults to 4.
-            temperature (float, optional): The temperature for sampling from the model. Defaults to 0.2.
+        Context manager for loading and unloading the Huggungface model.
 
         Yields:
             LlamaCpp: The loaded Mistral model.
@@ -197,16 +217,7 @@ class MistralSummarizer:
         self.model = CustomLlamaCpp(
             repo_id=self.repo_id,
             filename=self.filename,
-            n_gpu_layers=self.layers,
-            n_ctx=n_ctx,
-            max_tokens=max_tokens,
-            n_batch=n_batch,
-            n_threads=n_threads,
-            temperature=temperature,
-            top_p=0.9,
-            repeat_penalty=1.18,  # Trying to avoid repeating the same words
-            verbose=True,
-            chat_format="chatml",
+            **self.model_options,
         )
         try:
             yield self.model
@@ -265,11 +276,11 @@ class AudioSummarizationPipeline:
         TypeError: If summarizer is not an instance of MistralSummarizer.
     """
 
-    def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: MistralSummarizer, extractor: ExtractiveSummarizer):
+    def __init__(self, audio_path, transcriber: WhisperTranscriber, summarizer: LLMSummarizer, extractor: ExtractiveSummarizer):
         if not isinstance(transcriber, WhisperTranscriber):
             raise TypeError(
                 f'transcriber must be an instance of WhisperTranscriber, got {type(transcriber)} instead')
-        if not isinstance(summarizer, MistralSummarizer):
+        if not isinstance(summarizer, LLMSummarizer):
             raise TypeError(
                 f'summarizer must be an instance of MistralSummarizer, got {type(summarizer)} instead')
         if not isinstance(extractor, ExtractiveSummarizer):
@@ -333,7 +344,7 @@ if __name__ == "__main__":
     SVÆRT VIKTIG: Ikke nevn deg selv, kun skriv sammendraget. Ingen intro, ingen annen tekst [/INST]
     """
     transcriber = WhisperTranscriber()
-    summarizer = MistralSummarizer(repo_id="TheBloke/dolphin-2.6-mistral-7B-dpo-laser-GGUF", filename='*Q4_K_M.gguf',
+    summarizer = LLMSummarizer(repo_id="TheBloke/dolphin-2.6-mistral-7B-dpo-laser-GGUF", filename='*Q4_K_M.gguf',
                                    prompt_template=prompt_template, refine_template=refine_template)
     extractor = ExtractiveSummarizer()
     audio_path = '/home/magsam/workspace/huginn-hears/test_files/king.mp3'
