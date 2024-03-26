@@ -82,7 +82,7 @@ This will create an executable in the `build` directory.
 
 ## Acknowledgements
 This project build on a lot of great work done by others. The following projects were used:
-- [Faster-Whisper]((https://github.com/SYSTRAN/faster-whisper)) for speech-to-text transcription.
+- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) for speech-to-text transcription.
 - [llmlingua-2](https://github.com/microsoft/LLMLingua) for prompt compression.
 - [llama-ccp-python](https://github.com/abetlen/llama-cpp-python) to run LLMs locally and on CPUs.
     - [llama-ccp](https://github.com/ggerganov/llama.cpp)
