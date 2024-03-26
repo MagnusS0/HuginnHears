@@ -74,7 +74,8 @@ python streamlit_app/run.py
 This will start the Streamlit server and the application will be accessible at `localhost:8501`.
 
 ## Building
-To build the project into an executable, use the `setup.py` script with [cx_Freeze](https://cx-freeze.readthedocs.io/):
+To build the project into an executable, use the `setup.py` script with [cx_Freeze](https://cx-freeze.readthedocs.io/): <br>
+**NB**: Make sure you installed `llama-cpp-python` with static linking. 
 ```bash
 python setup.py build
 ```
