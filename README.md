@@ -1,5 +1,7 @@
-# Huginn Hears
-Huginn Hears is a Python application designed to transcribe speech and summarize it in Norwegian. It is meant to be used locally and ran on a single machine. The application is built using the [Streamlit](https://streamlit.io/) framework for the user interface, [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) for speech-to-text transcription, [llmlingua-2](https://github.com/microsoft/LLMLingua) for compressing the transcribed text and [llama-ccp-python](https://github.com/abetlen/llama-cpp-python) for summarization. You are free to 
+# Huginn Hears 🐦‍⬛
+
+
+Huginn Hears is a Python application designed to transcribe speech and summarize it in Norwegian. It is meant to be used locally and ran on a single machine. The application is built using the [Streamlit](https://streamlit.io/) framework for the user interface, [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) for speech-to-text transcription, [llmlingua-2](https://github.com/microsoft/LLMLingua) for compressing the transcribed text and [llama-ccp-python](https://github.com/abetlen/llama-cpp-python) for summarization. The main goal is to allow useres with little technical knowledge to test and try out STOA models locally on their computer. Taking advatage of the amazing open source projects out there and bundel it all into a simple installer. 
 
 ## Features
 - Transcribes speech into text.
@@ -11,6 +13,20 @@ This project uses [Poetry](https://python-poetry.org/) for dependency management
 
 ### Setting Environment Variables for llama-cpp-python
 `llama-cpp-python` requires specific environment variables to be set up in your system to function correctly. Follow the instructions in their repo to get the correct variables for your system. https://github.com/abetlen/llama-cpp-python 
+
+**Examples**
+
+```bash    
+# Linux and Mac
+CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS"
+```
+
+```bash
+# Windows
+$env:CMAKE_ARGS = "-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS"
+```
+</details>
+
 #### Commen errors 🤯
 <details>
 <summary> Soulutions from llama-cpp-python </summary>
@@ -69,7 +85,7 @@ This will install all the necessary dependencies as defined in the `pyproject.to
 ## Usage
 To run the application, use the following command:
 ```bash
-python streamlit_app/run.py
+streamlit run streamlit_app/app.py
 ```
 This will start the Streamlit server and the application will be accessible at `localhost:8501`.
 
