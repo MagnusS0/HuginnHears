@@ -16,8 +16,9 @@ streamlit = "^1.32.2"
 llmlingua = "0.2.1"
 langchain-openai = "^0.1.0"
 langchain = "^0.1.13"
-cx-freeze = "^6.15.16"
 
+[tool.poetry.dev-dependencies]
+cx-freeze = "^6.15.16"
 
 [build-system]
 requires = ["poetry-core"]

@@ -53,7 +53,7 @@ class CustomLlamaCpp(LLM):
     """llama.cpp model.
 
     To use, you should have the llama-cpp-python library installed, and provide the
-    path to the Llama model as a named parameter to the constructor.
+    repo_id and filename of the model on the Hugging Face model hub.
     Check out: https://github.com/abetlen/llama-cpp-python
 
     Example:

@@ -124,9 +124,16 @@ def main():
         _, file_path = get_file_path(uploaded_file)
         st.success(f"File uploaded")
 
+        # Set language of transcript
+        if st.toggle("Set language to English"):
+            st.session_state.language = "en"
+        else:
+            st.session_state.language = "no"
+
+
 
         # Initialize the transcriber and summarizer
-        transcriber = WhisperTranscriber()
+        transcriber = WhisperTranscriber(language=st.session_state.language)
         extractive_summarizer = ExtractiveSummarizer()
         summarizer = LLMSummarizer(repo_id=mistral_model_path, 
                                        filename=mistral_filename,

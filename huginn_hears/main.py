@@ -22,6 +22,7 @@ class WhisperTranscriber:
     Args:
         model_size (str): The size of the Whisper model. Defaults to 'small'.
         compute_type (str): The compute type for the model. Defaults to 'float16'.
+        language (str): The language of the audio. Defaults to 'no'.
 
     Methods:
         load_model: A context manager for loading the Whisper model.
@@ -29,14 +30,15 @@ class WhisperTranscriber:
 
     """
 
-    def __init__(self, model_size='small', compute_type="float16"):
+    def __init__(self, model_size='small', compute_type="float16", language='no'):
         self.model_size = model_size
         self.compute_type = compute_type
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = None
+        self.language = language
 
     @contextmanager
-    def load_model(self, cpu_threads=4, num_workers=6):
+    def _load_model(self, cpu_threads=4, num_workers=6):
         """
         A context manager for loading and unloading the Whisper model.
 
@@ -72,11 +74,11 @@ class WhisperTranscriber:
             str: The transcribed text.
 
         """
-        with self.load_model() as model:
+        with self._load_model() as model:
             segments, _ = model.transcribe(audio_path,
                                            beam_size=5,
                                            task="transcribe",
-                                           language='no',  # Declearing language is faster but optional
+                                           language=self.language,  # Declearing language is faster but optional
                                            chunk_length=28)  # 28 provides better results
             if timestamp:
                 transcribed_text = "\n".join(
@@ -104,7 +106,7 @@ class ExtractiveSummarizer:
         self.model = None
 
     @contextmanager
-    def load_extractive_summarizer(self):
+    def _load_extractive_summarizer(self):
         """
         Context manager for loading and unloading the extractive summarizer model.
 
@@ -153,7 +155,7 @@ class ExtractiveSummarizer:
 
         documents = splitter.split_text(document)
 
-        with self.load_extractive_summarizer() as model:
+        with self._load_extractive_summarizer() as model:
             summaries = [self._compressed_summary(
                 chunk, model) for chunk in documents]
             final_summary = ' '.join(summaries)
@@ -208,7 +210,7 @@ class LLMSummarizer:
         self.model_options = model_options
 
     @contextmanager
-    def load_model(self):
+    def _load_model(self):
         """
         Context manager for loading and unloading the Huggungface model.
 
@@ -241,7 +243,7 @@ class LLMSummarizer:
         docs = [Document(page_content=document)]
         output_parser = StrOutputParser()
 
-        with self.load_model() as model:
+        with self._load_model() as model:
 
             try:  # Trying to use the full context
                 chain = (
