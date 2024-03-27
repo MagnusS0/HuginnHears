@@ -36,16 +36,16 @@ def get_file_path(audio_file):
 
 # All prompts and refine templates
 prompt_templates = {
+    "Norwegian ChatML Prompt": chatml_no_prompt_template,
     "Norwegian Prompt": no_prompt_template,
     "English Prompt": en_prompt_template,
-    "Norwegian ChatML Prompt": chatml_no_prompt_template,
     "English ChatML Prompt": chatml_en_prompt_template,
 }
 
 refine_templates = {
+    "Norwegian ChatML Refine": chatml_no_refine_template,
     "Norwegian Refine": no_refine_template,
     "English Refine": en_refine_template,
-    "Norwegian ChatML Refine": chatml_no_refine_template,
     "English ChatML Refine": chatml_en_refine_template,
 }
 
@@ -109,7 +109,7 @@ def main():
             # Custom prompt and refine templates
             st.info("You can write your own prompt and refine templates. NB: Make sure to include the placeholders `{text}` and `{existing_answer}` in the templates.")
             custom_prompt = st.text_area("Custom Prompt Template", placeholder="Summerize this text: {text}")
-            custom_refine = st.text_area("Custom Refine Template", placeholder="Refine the summary: {existing_answer} with additional text: {text}")
+            custom_refine = st.text_area("Custom Refine Template", placeholder="Refine the summary: {existing_answer} based on this new info: {text}")
             if custom_prompt:
                 selected_prompt_template = custom_prompt
             if custom_refine:

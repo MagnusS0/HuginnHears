@@ -70,6 +70,9 @@ class CustomLlamaCpp(LLM):
     filename: str
     """The filename of the model file on the Hugging Face model hub."""
 
+    chat_format: Optional[str] = None
+    """The chat format to use for the model."""
+
     lora_base: Optional[str] = None
     """The path to the Llama LoRA base model."""
 
@@ -202,6 +205,7 @@ class CustomLlamaCpp(LLM):
             "use_mmap",
             "last_n_tokens_size",
             "verbose",
+            "chat_format",
         ]
         model_params = {k: values[k] for k in model_param_names}
         # For backwards compatibility, only include if non-null.
