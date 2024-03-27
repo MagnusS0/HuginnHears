@@ -8,6 +8,12 @@ Huginn Hears is a Python application designed to transcribe speech and summarize
 - Summarizes the transcribed text.
 - Supports both English and Norwegian languages.
 
+
+
+https://github.com/MagnusS0/HuginnHears/assets/97634880/9cc09696-e26b-4464-a2cd-3a0e5603533c
+
+
+
 ## Installation
 This project uses [Poetry](https://python-poetry.org/) for dependency management. Before installing the project dependencies, it's essential to set up certain environment variables required by [llama-ccp-python](https://github.com/abetlen/llama-cpp-python).
 
