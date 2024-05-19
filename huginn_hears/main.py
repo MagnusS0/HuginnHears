@@ -199,8 +199,8 @@ class LLMSummarizer:
                      'repeat_penalty': 1.18,
                      'verbose': True,
                      'chat_format': "chatml",
-                     'flash_attn': True,
-                    'system_prompt': "Du er en hjelpsom assistent som skriver møte sammendrag og følger meeting minutes metodikken"
+                     'flash_attn': True if torch.cuda.is_available() else False,
+                     'system_prompt': "Du er en hjelpsom assistent som skriver møte sammendrag og følger meeting minutes metodikken",
                  },
                  text_splitter=RecursiveCharacterTextSplitter):
         

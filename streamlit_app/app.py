@@ -36,15 +36,15 @@ def get_file_path(audio_file):
 
 # All prompts and refine templates
 prompt_templates = {
-    "Norwegian ChatML Prompt": chatml_no_prompt_template,
     "Norwegian Prompt": no_prompt_template,
+    "Norwegian ChatML Prompt": chatml_no_prompt_template,
     "English Prompt": en_prompt_template,
     "English ChatML Prompt": chatml_en_prompt_template,
 }
 
 refine_templates = {
-    "Norwegian ChatML Refine": chatml_no_refine_template,
     "Norwegian Refine": no_refine_template,
+    "Norwegian ChatML Refine": chatml_no_refine_template,
     "English Refine": en_refine_template,
     "English ChatML Refine": chatml_en_refine_template,
 }
@@ -65,12 +65,12 @@ def main():
     # Notice about the initial download time for models
     st.info("Please note: The first run of Huginn Hears may be slower as it downloads all necessary models. This is a one-time process, and subsequent runs will be significantly faster.")
     # Get repo id and filename for the Hugging Face model
-    mistral_model_path = st.text_input(
-        "Enter the Hugging Face repo id", value="TheBloke/dolphin-2.6-mistral-7B-dpo-laser-GGUF")
-    mistral_filename = st.text_input(
+    hf_model_path = st.text_input(
+        "Enter the Hugging Face repo id", value="NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF")
+    hf_filename = st.text_input(
         "Enter the filename of the model", value="*Q4_K_M.gguf")
     # Check if the user has entered the model path and filename
-    if not mistral_model_path or not mistral_filename:
+    if not hf_model_path or not hf_filename:
         st.warning("Please enter the Hugging Face repo id and the filename of the model.")
         st.stop()
 
@@ -95,9 +95,15 @@ def main():
             with col2:
                 max_tokens = st.slider("Max Tokens (Output)", min_value=0, max_value=1024, value=512, step=128)
             with col3:
-                n_batch = st.slider("Batch Size", min_value=0, max_value=512, value=16, step=4)
+                n_batch = st.slider("Batch Size", min_value=32, max_value=512, value=512, step=4)
             with col4:
                 n_threads = st.slider("Threads", min_value=0, max_value=16, value=4, step=1)
+            
+            # Set custom end of sentence token (Needed for some lama 3 models)
+            eos_token = st.text_input("End of Sentence Token", placeholder="<|eot_id|>") if st.checkbox("Use custom end of sentence token") else None
+            
+            # Set system prompt (effective way to guide the model to generate the desired output)
+            system_prompt = st.text_area("System Prompt", placeholder="Du er en hjelpsom assistent som skriver møte sammendrag og følger meeting minutes metodikken")
 
             model_options = {
                 "n_ctx": n_ctx,
@@ -109,7 +115,9 @@ def main():
                 'repeat_penalty': 1.18,
                 'verbose': True,
                 'chat_format': "chatml",
-                'flash_attn': True,
+                'flash_attn': True if torch.cuda.is_available() else False,
+                'system_prompt': system_prompt,
+                'stop': [eos_token] if eos_token else [],
             }
 
             # Custom prompt and refine templates
@@ -141,8 +149,8 @@ def main():
         # Initialize the transcriber and summarizer
         transcriber = WhisperTranscriber(language=st.session_state.language)
         extractive_summarizer = ExtractiveSummarizer()
-        summarizer = LLMSummarizer(repo_id=mistral_model_path, 
-                                       filename=mistral_filename,
+        summarizer = LLMSummarizer(repo_id=hf_model_path, 
+                                       filename=hf_filename,
                                        prompt_template=selected_prompt_template, 
                                        refine_template=selected_refine_template, model_options=model_options)
 
