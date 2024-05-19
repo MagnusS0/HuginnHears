@@ -47,8 +47,6 @@ def refine_summary(chain, refine_chain, split_docs):
     return existing_answer
 
 
-
-
 class CustomLlamaCpp(LLM):
     """llama.cpp model.
 
@@ -64,6 +62,8 @@ class CustomLlamaCpp(LLM):
     """
 
     client: Any  #: :meta private:
+
+    system_prompt: Optional[str] = "You are a helpful assistant writing meeting summaries"
     repo_id: str 
     """The repo_id from Hugging Face model hub."""
 
@@ -105,17 +105,20 @@ class CustomLlamaCpp(LLM):
     """Number of threads to use.
     If None, the number of threads is automatically determined."""
 
-    n_batch: Optional[int] = Field(8, alias="n_batch")
+    n_batch: Optional[int] = Field(512, alias="n_batch")
     """Number of tokens to process in parallel.
     Should be a number between 1 and n_ctx."""
 
     n_gpu_layers: Optional[int] = Field(None, alias="n_gpu_layers")
     """Number of layers to be loaded into gpu memory. Default None."""
+    
+    flash_attn: Optional[bool] = Field(None, alias="flash_attn")
+    """Use Flash Attention. Default None."""
 
     suffix: Optional[str] = Field(None)
     """A suffix to append to the generated text. If None, no suffix is appended."""
 
-    max_tokens: Optional[int] = 256
+    max_tokens: Optional[int] = 512
     """The maximum number of tokens to generate."""
 
     temperature: Optional[float] = 0.8
@@ -145,10 +148,10 @@ class CustomLlamaCpp(LLM):
     use_mmap: Optional[bool] = True
     """Whether to keep the model loaded in RAM"""
 
-    rope_freq_scale: float = 1.0
+    rope_freq_scale: float = 0.0
     """Scale factor for rope sampling."""
 
-    rope_freq_base: float = 10000.0
+    rope_freq_base: float = 0.0
     """Base frequency for rope sampling."""
 
     model_kwargs: Dict[str, Any] = Field(default_factory=dict)
@@ -173,6 +176,7 @@ class CustomLlamaCpp(LLM):
 
     verbose: bool = True
     """Print verbose output to stderr."""
+
 
     @root_validator()
     def validate_environment(cls, values: Dict) -> Dict:
@@ -206,6 +210,7 @@ class CustomLlamaCpp(LLM):
             "last_n_tokens_size",
             "verbose",
             "chat_format",
+            "flash_attn",
         ]
         model_params = {k: values[k] for k in model_param_names}
         # For backwards compatibility, only include if non-null.
@@ -260,7 +265,7 @@ class CustomLlamaCpp(LLM):
             "stop_sequences": self.stop,  # key here is convention among LLM classes
             "repeat_penalty": self.repeat_penalty,
             "top_k": self.top_k,
-        }
+}
         if self.grammar:
             params["grammar"] = self.grammar
         return params
@@ -337,10 +342,16 @@ class CustomLlamaCpp(LLM):
                 combined_text_output += chunk.text
             return combined_text_output
         else:
+            system_prompt = self.system_prompt
             params = self._get_parameters(stop)
             params = {**params, **kwargs}
-            result = self.client(prompt=prompt, **params)
-            return result["choices"][0]["text"]
+            result = self.client.create_chat_completion(messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                }, {"role": "user", "content": prompt}, ],
+                **params)
+            return result['choices'][0]['message']['content']
 
     def _stream(
         self,

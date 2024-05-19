@@ -175,13 +175,15 @@ class LLMSummarizer:
         model_options (dict, optional): The options to use for the LLM model. Defaults to {
             'n_ctx': 4096,
             'max_tokens': 512,
-            'n_batch': 16,
+            'n_batch': 512,
             'n_threads': 6,
             'temperature': 0.2,
             'top_p': 0.9,
             'repeat_penalty': 1.18,
             'verbose': True,
             'chat_format': "chatml",
+            'flash_attn': True,
+            'system_prompt': "Du er en hjelpsom assistent som skriver møte sammendrag og følger meeting minutes metodikken"
         }
     """
 
@@ -190,13 +192,15 @@ class LLMSummarizer:
                  model_options: dict = {
                      'n_ctx': 4096,
                      'max_tokens': 512,
-                     'n_batch': 16,
+                     'n_batch': 512,
                      'n_threads': 6,
                      'temperature': 0.2,
                      'top_p': 0.9,
                      'repeat_penalty': 1.18,
                      'verbose': True,
                      'chat_format': "chatml",
+                     'flash_attn': True,
+                    'system_prompt': "Du er en hjelpsom assistent som skriver møte sammendrag og følger meeting minutes metodikken"
                  },
                  text_splitter=RecursiveCharacterTextSplitter):
         

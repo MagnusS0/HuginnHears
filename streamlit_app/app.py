@@ -103,7 +103,13 @@ def main():
                 "n_ctx": n_ctx,
                 "max_tokens": max_tokens,
                 "n_batch": n_batch,
-                "n_threads": n_threads
+                "n_threads": n_threads,
+                'temperature': 0.2,
+                'top_p': 0.9,
+                'repeat_penalty': 1.18,
+                'verbose': True,
+                'chat_format': "chatml",
+                'flash_attn': True,
             }
 
             # Custom prompt and refine templates
